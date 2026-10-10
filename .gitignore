@@ -1,0 +1,23 @@
+# 측정 데이터 — 연구 데이터는 공개 저장소에 올리지 않음
+*.csv
+테스트/
+
+# PC 마다 다른 설정 (로컬 경로 포함) · 자체 테스트 결과
+evom2_settings.json
+selftest_*
+update_result.txt
+
+# 빌드 결과물 — exe 는 저장소 대신 GitHub 릴리스로 배포
+*.exe
+*.part
+*.new
+__pycache__/
+build/
+dist/
+*.spec
+
+# 제조사 문서 · 설치 프로그램 — 재배포 조건 때문에 넣지 않음 (README 의 링크에서 받음)
+*.pdf
+
+# 프로그램 오류 기록 (PC 마다 생김)
+*.log

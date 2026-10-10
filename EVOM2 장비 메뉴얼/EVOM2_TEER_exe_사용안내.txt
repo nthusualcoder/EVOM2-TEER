@@ -1,0 +1,40 @@
+EVOM2_TEER.exe 사용 안내  (2026-10-10, v1.0.0)
+=====================================
+
+■ 다른 컴퓨터에 설치하기  → "EVOM2_TEER 배포용 (이 폴더만 다른 PC로 복사)" 폴더를 통째로 복사
+  폴더 안의 0_읽어보세요_설치순서.txt 순서대로:
+  1. 1_NI-DAQmx_드라이버_설치_25.8.exe 실행 (NI 정식 온라인 설치기, 무료, 1회, 인터넷 필요, 재부팅)
+       - 완전 오프라인 설치본은 NI 사이트 로그인이 필요해 포함하지 못했습니다:
+         https://www.ni.com/ko-kr/support/downloads/drivers/download.ni-daq-mx.html → "Install Offline"
+       - 이 드라이버는 NI 라이선스 때문에 exe 안에 넣을 수 없습니다. 없으면
+         프로그램 상단 상태줄에 "NI-DAQmx 드라이버를 찾지 못했습니다"가 뜨고 장비 목록에 시뮬레이션만 보입니다.
+  2. USB-6003을 USB로 연결
+  3. 2_EVOM2_TEER.exe 더블클릭 (약 23 MB, Python 설치 불필요)
+  ※ 인터넷이 되면 exe 는 https://github.com/nthusualcoder/EVOM2-TEER/releases/latest 에서 받아도 됩니다.
+
+■ 업데이트
+  - 프로그램 오른쪽 위 [업데이트 확인] → 새 버전이 있으면 받아서 바꾼 뒤 다시 실행 (설정·데이터 유지).
+  - 켤 때 3초 뒤 한 번 조용히 확인합니다. 인터넷이 없으면 아무 일도 없습니다.
+  - 업데이트 중에 EVOM2_TEER_update.exe 가 잠깐 생겼다가 다음 실행 때 지워집니다.
+
+■ 처음 실행할 때
+  - Windows SmartScreen "알 수 없는 게시자" 경고가 뜨면
+    [추가 정보] → [실행] 을 누르세요. (서명 안 된 자체 제작 프로그램이라 뜨는 경고)
+  - 백신이 차단하면 예외 등록.
+  - 첫 실행은 압축 해제 때문에 5~10초 걸릴 수 있습니다.
+
+■ 저장되는 파일 (exe와 같은 폴더)
+  - teer_log_YYYYMMDD.csv   측정 데이터 (프로그램 5번 칸에서 폴더/파일명 변경 가능)
+  - evom2_settings.json     보정계수, insert 면적, 저장 위치, 테마 등 설정
+  → 폴더에 쓰기 권한이 있어야 합니다. C:\Program Files 안에는 두지 마세요.
+
+■ 요구 사양
+  - Windows 10 / 11 64비트
+  - NI-DAQmx 드라이버 (위 2번)
+  - NI USB-6001 / 6002 / 6003 중 하나 (핀 배치 동일)
+
+■ 프로그램을 고친 뒤 exe를 다시 만들 때 (개발 PC)
+  - build_exe.bat 더블클릭 → 같은 폴더에 새 EVOM2_TEER.exe 생성 (배포용 폴더의 2_EVOM2_TEER.exe 도 갱신)
+  - 새 버전을 모든 PC 에 배포: EVOM2_TEER.py 의 APP_VERSION 을 올리고
+    "EVOM2 장비 코드" 폴더에서  python release.py publish "바뀐 내용"   (가이드 8절)
+  - 필요: Python 3.10 + pip install nidaqmx pyinstaller
