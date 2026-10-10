@@ -14,7 +14,7 @@ WPI **EVOM2** 상피 전기저항계(TEER meter)의 아날로그 출력(BNC)을 
 1. **NI-DAQmx 드라이버** 설치 (무료, 1회): https://www.ni.com/ko-kr/support/downloads/drivers/download.ni-daq-mx.html
 2. USB-6003 을 USB 로 연결
 3. [최신 릴리스](https://github.com/nthusualcoder/EVOM2-TEER/releases/latest)에서 `EVOM2_TEER.exe` 를 받아 쓰기 가능한 폴더(바탕화면 등)에 두고 실행
-   - Python 설치 불필요. SmartScreen 경고가 뜨면 [추가 정보] → [실행]
+   - Python 설치 불필요. SmartScreen 경고가 뜨면 [추가 정보] → [실행], V3 등 백신의 "프로그램 실행 알림"에는 [허용] (서명 없는 exe 라 새 버전마다 뜰 수 있음)
    - 측정 CSV 와 설정 파일은 exe 와 같은 폴더(또는 프로그램에서 고른 폴더)에 생깁니다
 
 배선 (EVOM2 OUTPUT BNC → USB-6003 AI 단자, 기본 DIFF): 노란 선(BNC 중심) → 2번(AI0+), 검은 선(실드) → 3번(AI4 = AI0−)과 1번(AI GND) 둘 다.

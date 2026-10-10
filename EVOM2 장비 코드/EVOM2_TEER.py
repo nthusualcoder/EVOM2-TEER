@@ -59,10 +59,12 @@ except Exception as _e:
     NIDAQMX_OK = False
     NIDAQMX_ERR = f"{type(_e).__name__}: {_e}"
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 GITHUB_REPO = "nthusualcoder/EVOM2-TEER"          # 업데이트를 받아 오는 GitHub 저장소 (공개)
 SRC_IN_REPO = "EVOM2 장비 코드/EVOM2_TEER.py"      # .py 로 실행할 때 업데이트로 받는 파일 (저장소 안 경로)
 UPDATE_EXE = "EVOM2_TEER_update.exe"              # 업데이트하는 동안에만 잠깐 생기는 새 exe
+UPDATE_FLAG = "EVOM2_TEER_update.started"        # 새 exe 가 실제로 돌기 시작했다는 표시 (옛 프로그램은 이걸 보고 닫힘)
+UPDATE_WAIT = 300                                 # 백신 확인 등으로 새 exe 시작을 기다리는 최대 초
 
 RATE = 1000            # 샘플링 속도 (Hz)
 CHUNK = 100            # 한 번에 읽는 샘플 수 (0.1초)
@@ -398,8 +400,14 @@ def download(url, dest, size=None, digest=None, progress=None):
 
 
 def apply_update(target, extra):
-    """업데이트 2단계 (새로 받은 EVOM2_TEER_update.exe 로 실행됨): 옛 프로그램이 완전히 닫혀 exe 를 놓아 줄 때까지
-    기다렸다가 자신을 target(옛 exe 자리, 이름 그대로)에 복사하고 target 을 다시 실행한다."""
+    """업데이트 2단계 (새로 받은 EVOM2_TEER_update.exe 로 실행됨): 시작했다는 표시를 남기고(옛 프로그램이 이걸 보고
+    닫힘), 옛 프로그램이 완전히 닫혀 exe 를 놓아 줄 때까지 기다렸다가 자신을 target(옛 exe 자리, 이름 그대로)에
+    복사하고 target 을 다시 실행한다."""
+    try:
+        with open(os.path.join(os.path.dirname(target), UPDATE_FLAG), "w") as f:
+            f.write(str(os.getpid()))
+    except OSError:
+        pass
     for _ in range(240):                          # 최대 2분
         try:
             shutil.copyfile(sys.executable, target)
@@ -1700,20 +1708,22 @@ class App(tk.Tk):
 
     # ================= 업데이트 (GitHub 릴리스)
     def _cleanup_update(self, tries=20):
-        """업데이트 뒤 남은 EVOM2_TEER_update.exe 지우기 (업데이트 프로그램이 닫힐 때까지 몇 번 다시 시도)"""
-        if not getattr(sys, "frozen", False):
+        """업데이트 뒤 남은 EVOM2_TEER_update.exe · 표시 파일 지우기 (업데이트 프로그램이 닫힐 때까지 다시 시도).
+        새 업데이트가 시작되면 그 파일들을 지우지 않도록 멈춘다."""
+        if not getattr(sys, "frozen", False) or self.updating:
             return
         p = os.path.join(HERE, UPDATE_EXE)
         if os.path.normcase(os.path.abspath(p)) == os.path.normcase(os.path.abspath(sys.executable)):
             return
-        for q in (p, p + ".part"):
+        busy = False
+        for q in (p, p + ".part", os.path.join(HERE, UPDATE_FLAG)):
             try:
                 if os.path.exists(q):
                     os.remove(q)
             except OSError:
-                if tries:
-                    self.after(1000, self._cleanup_update, tries - 1)
-                return
+                busy = True
+        if busy and tries:
+            self.after(1000, self._cleanup_update, tries - 1)
 
     def _startup_update_check(self):
         threading.Thread(target=self._check_worker, args=(False,), daemon=True).start()
@@ -1821,13 +1831,23 @@ class App(tk.Tk):
             self.after(1000, self._on_upd_ready, dest)
             return
         extra = ["--selftest"] if self.auto_update else []
+        if getattr(sys, "frozen", False):
+            # 새 exe 를 실행하고, 그것이 실제로 돌기 시작했다는 표시(UPDATE_FLAG)가 생길 때까지 이 창은 열어 둔다.
+            # V3 같은 백신은 처음 보는 exe 를 '프로그램 실행 알림'으로 붙잡아 두므로 실행 요청은 다른 스레드에서 한다.
+            flag = os.path.join(HERE, UPDATE_FLAG)
+            try:
+                os.remove(flag)
+            except OSError:
+                pass
+            if self.auto_update:
+                self._update_test_report(f"DOWNLOADED {self.latest[0]} -> applying", close=False)
+            self.status_var.set("새 버전을 실행하는 중… 백신(V3 등)에서 '프로그램 실행 알림'이 뜨면 [허용]을 누르세요")
+            threading.Thread(target=self._launch_worker, daemon=True,
+                             args=([dest, "--apply-update", sys.executable, *extra],)).start()
+            self._wait_started(flag, time.time())
+            return
         try:
-            if getattr(sys, "frozen", False):
-                if self.auto_update:
-                    self._update_test_report(f"DOWNLOADED {self.latest[0]} -> applying", close=False)
-                subprocess.Popen([dest, "--apply-update", sys.executable, *extra], cwd=HERE,
-                                 creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
-            elif self.auto_update or messagebox.askyesno("업데이트", "새 코드로 바꿨습니다. 지금 다시 시작할까요?"):
+            if self.auto_update or messagebox.askyesno("업데이트", "새 코드로 바꿨습니다. 지금 다시 시작할까요?"):
                 subprocess.Popen([sys.executable, dest, *extra], cwd=os.path.dirname(dest))
             else:
                 self._end_update("새 코드로 바꿨습니다. 다음 실행부터 적용됩니다.")
@@ -1837,6 +1857,31 @@ class App(tk.Tk):
             messagebox.showerror("업데이트 실패", f"새 프로그램을 실행하지 못했습니다.\n{e}")
             return
         self._on_close()
+
+    def _launch_worker(self, args):
+        try:
+            subprocess.Popen(args, cwd=HERE,
+                             creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+        except OSError as e:
+            if getattr(e, "winerror", None) == 5:            # 접근 거부: 백신이 실행을 막음
+                e = OSError("백신(V3 등)이 새 버전 실행을 막았습니다. 업데이트를 다시 누르고 '프로그램 실행 알림'에서 "
+                            f"[허용]을 고르세요. 지금 버전은 그대로입니다. ({e})")
+            self.q.put(("upd_failed", e))
+
+    def _wait_started(self, flag, t0):
+        """새 exe 가 시작됐으면 이 프로그램을 닫아 exe 파일을 놓아 줌. UPDATE_WAIT 초가 지나면 업데이트를 포기"""
+        if not self.updating or self.closing:                # 실행 실패(upd_failed)로 이미 끝남
+            return
+        if os.path.exists(flag):
+            self._on_close()
+            return
+        if time.time() - t0 > UPDATE_WAIT:
+            self._end_update(f"새 버전이 {UPDATE_WAIT // 60}분 동안 시작되지 않아 업데이트를 멈췄습니다 "
+                             "(백신 확인 창을 확인하세요). 지금 버전으로 계속합니다.")
+            if self.auto_update:
+                self._update_test_report("FAIL new exe did not start", close=True)
+            return
+        self.after(500, self._wait_started, flag, t0)
 
     def _update_test_report(self, text, close):
         with open(os.path.join(HERE, "update_result.txt"), "w", encoding="utf-8") as f:
